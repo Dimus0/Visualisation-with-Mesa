@@ -82,11 +82,13 @@ class AntTSP(mesa.Agent):
     An agent
     """
 
-    def __init__(self, model, alpha: float = 1.0, beta: float = 5.0):
+    def __init__(self,unique_id, model, alpha: float = 2.0, beta: float = 3.0):
         """
         Customize the agent
+        змінено ваги феромонів і видимості (відстані)
+        alpha = 2.0 (більший вплив феромонів), beta = 3.0 (менший вплив відстані)
         """
-        super().__init__(model)
+        super().__init__(unique_id,model)
         self.alpha = alpha
         self.beta = beta
         self._cities_visited = []
@@ -103,6 +105,10 @@ class AntTSP(mesa.Agent):
         return results
 
     def decide_next_city(self):
+        """
+        Додано ймовірність 10% повернення до вже відвіданого міста.
+        """
+
         # Random
         # new_city = self.random.choice(list(self.model.all_cities - set(self.cities_visited)))
         # Choose closest city not yet visited
@@ -114,6 +120,9 @@ class AntTSP(mesa.Agent):
             return current_city
 
         # p_ij(t) = 1/Z*[(tau_ij)**alpha * (1/distance)**beta]
+        if np.random.random() < 0.1:
+            candidates = neighbors
+
         results = []
         for city in candidates:
             val = (
@@ -161,7 +170,8 @@ class AcoTspModel(mesa.Model):
 
     def __init__(
         self,
-        num_agents: int = 20,
+         # Збільшено кількість мурах до 50
+        num_agents: int = 50,
         tsp_graph: TSPGraph = TSPGraph.from_random(20),
         max_steps: int = int(1e6),
         ant_alpha: float = 1.0,
@@ -175,9 +185,9 @@ class AcoTspModel(mesa.Model):
         self.max_steps = max_steps
         self.grid = mesa.space.NetworkGrid(tsp_graph.g)
 
-        for _ in range(self.num_agents):
-            agent = AntTSP(model=self, alpha=ant_alpha, beta=ant_beta)
-
+        for i in range(self.num_agents):
+            agent = AntTSP(unique_id=i, model=self, alpha=ant_alpha, beta=ant_beta)
+            
             city = tsp_graph.cities[self.random.randrange(self.num_cities)]
             self.grid.place_agent(agent, city)
             agent._cities_visited.append(city)
@@ -205,7 +215,11 @@ class AcoTspModel(mesa.Model):
 
         self.running = True
 
-    def update_pheromone(self, q: float = 100, ro: float = 0.5):
+    def update_pheromone(self, q: float = 100, ro: float = 0.3):
+        """
+        Збільшено швидкість випаровування феромонів до 0.3.
+        Це змушує мурах шукати нові шляхи частіше.
+        """
         # tau_ij(t+1) = (1-ro)*tau_ij(t) + delta_tau_ij(t)
         # delta_tau_ij(t) = sum_k^M {Q/L^k} * I[i,j \in T^k]
         delta_tau_ij = {}
